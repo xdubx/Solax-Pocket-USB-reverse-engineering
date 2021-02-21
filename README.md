@@ -1,6 +1,6 @@
 # What is this?
 
-I try to revese the solar stick at the communication level with the solar inverter vom Solax.
+I try to revese the solar stick at the communication level with the solar inverter from Solax.
 In parallel, I'm looking at ghirda to maybe speed things up. I would be very grateful for any tips.
 
 
