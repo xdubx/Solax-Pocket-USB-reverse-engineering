@@ -394,12 +394,15 @@ In parallel, I'm looking at ghirda to maybe speed things up. I would be very gra
 
 
 # Output on app
+
+readFile_1
 306 W Inverter
 319 W Pannel
 1,4kw Daly
 54,9 kw sum of all time
 
 
+readFile_2
 58,1  total
 0,6 daly
 110 W Solar 
