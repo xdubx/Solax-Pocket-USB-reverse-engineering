@@ -396,19 +396,18 @@ In parallel, I'm looking at ghirda to maybe speed things up. I would be very gra
 # Output on app
 
 readFile_1
-306 W Inverter
-319 W Pannel
-1,4kw Daly
-54,9 kw sum of all time
-
-
+* 306 W Inverter
+* 319 W Pannel
+* 1,4kw Daly
+* 54,9 kw sum of all time
+  
 readFile_2
-58,1  total
-0,6 daly
-110 W Solar 
-110 W Inverter 
-100 W generator
-
+* 58,1  total
+* 0,6 daly
+* 110 W Solar 
+* 110 W Inverter 
+* 100 W generator
+  
 
 ## Data Structure
 Solar
@@ -418,12 +417,12 @@ Solar
 * pv2 current       0
 * pv1 input power   113
 * pv2 input power   0
-
+  
 Grid 
 * consume energy    0
 * grid power        103W
 * feed in energy    0
-
+  
 Off-grid
 * off-grid Voltage  0
 * off-grid current  0
@@ -437,7 +436,7 @@ About
 * dsp version       1.19
 * arm version       1.18
 
-
+  
 # maybe struct of data 
 *    temperature
 *    energy_today
