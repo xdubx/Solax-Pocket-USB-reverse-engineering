@@ -204,13 +204,13 @@ In parallel, I'm looking at ghirda to maybe speed things up. I would be very gra
 '\x00'
 
 0x24 '$'    
-'\x00'  // 9216
+'\x00'  
 
 '\x00'
 '\x00'
 
 '\x9a'  
-'\x02'  // 39426
+'\x02'  
 
 '\x00'
 '\x00'
@@ -252,7 +252,7 @@ In parallel, I'm looking at ghirda to maybe speed things up. I would be very gra
 '\x00'
 
 0x26  '&'    
-'\x00'      // 9728
+'\x00'      
 
 '\x00'
 '\x00'
@@ -387,7 +387,7 @@ In parallel, I'm looking at ghirda to maybe speed things up. I would be very gra
 '\x00'
 
 '\x83'  
-'\x05'  // 33541
+'\x05'  
 ```
 
 
