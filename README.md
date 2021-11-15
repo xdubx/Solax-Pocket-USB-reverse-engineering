@@ -3,871 +3,106 @@
 I try to revese the solar stick at the communication level with the solar inverter from Solax.
 In parallel, I'm looking at ghirda to maybe speed things up. I would be very grateful for any tips.
 
-
-# Build of request USB
-
-
-1. Request get info from inverter
-```
-0xaa ''
-0x55 'U'
-0x07 BEL
-0x01 SOH Start of Heading
-0x05 ENQ Enquiry
-0x0c FF Form feed | seitenvorschub
-0x01 SOH Start of Heading
-```
-
-2. Request
-```
-0xaa ''
-0x55 'U'
-'\x11'
-'\x02'
-'\x01'
-'S'
-'X'
-'X'
-'X'
-'X'
-'X'
-'X'
-'X'
-'X'
-'M'
-'\x1f'
-'\x04'
-```
-
-3. Requests get info from inverter
-
-```
-0xaa ''
-0x55 'U'
-0x07 BEL
-0x01 SOH Start of Heading
-0x05
-0x0c
-0x01 SOH Start of Heading
-```
-
-4. Requests request something
-
-```
-0xaa ''
-0x55 'U'
-0x07 BEL
-0x01 SOH Start of Heading
-0x16
-0x1d
-0x01 SOH Start of Heading
-```
-
-5. Requests request something and repeat maybe realTimeData ?
-```
-0xaa ''
-0x55 'U'
-0x07 BEL
-0x01 SOH Start of Heading
-0x0c
-0x13
-0x01 SOH Start of Heading
-```
-
-
-
-# Answer of inverter 
-204 bytes
-
-```
-0xaa ''
-0x55 'U'
-'\xcf'  // constant
-'\x01'  // constant 
-'\x8c'  // constant
-
-'\x19'      // changed
-0x09 '\t'   // constant
-
-0x0d '\r'   // changed 
-'\x00'  
-
-0x38 '8'    // changed
-'\x01'      // changed
-
-'\x8c'      // changed
-'\x02'      // changed
-
-'\x00'
-'\x00'
-
-0x32 '2'
-'\x00'
-
-'\x00'
-'\x00'
-
-0x47 'G'
-'\x01' 
-
-'\x00'
-'\x00'
-
-'\x88'
-'\x13'
-
-'\x02'  
-'\x00'
-
-0x25  '%' 
-'\x02'  
-
-'\x00'
-'\x00'
-
-'\x0e' 
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-0x24 '$'    
-'\x00'  
-
-'\x00'
-'\x00'
-
-'\x9a'  
-'\x02'  
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-0x26  '&'    
-'\x00'      
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x00'
-'\x00'
-
-'\x83'  
-'\x05'  
-```
+## Which µC this repo using 
+For a fast development i wrote for the esp8622 in arduino cpp. Pinout below. 
+
+# Build of request
+Spezial thanks go to @tuxmike
+
+## Message structure (header, payload, checksum)
+|Byte offset|Datatype|Description|Value|
+|---|---|---|---|
+|0|uint16|Static preamble|0xAA55|
+|2|uint8|Total msg frame size (byte)|size of: header + payload + checksum
+|3|uint8|Cmd control code|e.g. 0x01|
+|4|uint8|Cmd function code|e.g. 0x8C|
+|5|...|payload|see cmd table|
+|[Frame size-2]|uint16|Checksum|uint16 binary sum of all msg bytes|
+
+## Commands
+|Control code|Function Code|Payload length (byte)|Checksum length (byte)|Description|
+|---|---|---|---|---|
+|01|05|0|2|Request read serial numbers|
+|01|85|40|2|Response read serial numbers|
+|02|01|10|2|Request register pocket dongle serial number|
+|02|01|10|0 (!)|Response register pocket dongle serial number|
+|01|16|0|2|Request ?|
+|01|96|400|2|Response ?|
+|01|0C|0|2|Request inverter data|
+|01|8C|200|2|Response inverter data|
+|01|04|0|2|Request inverter error data|
+|01|84|44|2|Response inverter error data|
+
+## Serial numbers (Control code=0x01, FuncCode=0x85)
+|Byte offset|Datatype|Description|
+|---|---|---|
+|0|char[14]|Inverter serial number|
+|14|char[14]|Inverter serial number padding, spaces|
+|28|uint16|Inverter model code|
+|30|char[8]|Pocket dongle serial number|
+|38|uint16|Inverter model type|
+
+## Register pocket dongle serial number (Control code=0x02, FuncCode=0x01)
+|Byte offset|Datatype|Description|
+|---|---|---|
+|0|char[10]|Pocket dongle serial number|
+
+## Inverter data (Control code=0x01, FuncCode=0x8C)
+|Byte offset|Datatype|Description|Unit|
+|---|---|---|---|
+|0|uint16|Grid voltage|0.1V|
+|2|uint16|Grid current|0.1A|
+|4|uint16|Grid power|1W|
+|6|uint16|PV1 voltage|0.1V|
+|8|uint16|PV1 current|0.1A|
+|10|uint16|PV2 voltage|0.1V|
+|12|uint16|PV2 current|0.1A|
+|14|uint16|PV1 power|1W|
+|16|uint16|PV2 power|1W|
+|18|uint16|Grid frequency|0.01Hz|
+|20|uint16|Mode|0: Wait, 1: Check, 2: Normal/Running, 3: Fault, (4: PermanentFault, 5: UpdateMode, ...?)|
+|22|uint32|E Total|0.1kwh|
+|26|uint16|E Today|0.1kwh|
+|28|?|?|?|
+|...|...|...|...|
+|78|uint16|Temperature|°C (?)|
+|82|uint32|Runtime-total|1h|
+|86|?|?|?|
+|...|...|...|...|
+|110|uint8|0x1B ?|?|
+|...|...|...|...|
+
+## Inverter error data (Control code=0x01, FuncCode=0x84)
+|Byte offset|Datatype|Description|Unit|
+|---|---|---|---|
+|0|uint16|VAC low|0.1V|
+|2|uint16|VAC high|0.1V|
+|4|uint16|FAC low|0.01Hz|
+|6|uint16|FAC high|0.01Hz|
+|8|?|?|?|
+|12|uint16|VAC high slow (?)|0.1V|
+|14|uint16|VAC low slow (?)|0.1V|
+|16|uint16|?|0.1V|
+|18|uint16|?|0.01Hz|
+|20|uint16|?|0.01Hz|
+|...|...|...|...|
+|208|uint16|Settings PIN A|decimal|
+|...|...|...|...|
+
+## Values that are missing
+* Battery
+If you have a battery connected to your inverter -> You can read the values out and print it in a issue.
+
+# ESP8266
+
+## Pinout of ESP
+|ESP|USB|
+|---|---|
+|GND|GND|
+|VIN|5V|
+|GPIO1|TX|
+|GPIO3|RX|
   
-405 bytes
+TODO: add image 
 
-```
-0x97
-0x01
-0x96
-0x0
-0x04
-0x3b
-0x0
-0x8e
-0x12
-0x1e
-0x14
-0x01
-0x00
-0x02
-0x00
-0xe2
-0x09
-0x30
-0x07
-0x3b
-0x0
-0x8e
-0x12
-0x1e
-0x14
-0x84
-0x03
-0x64
-0x00
-0x00
-0x00
-0x64
-0x00
-0x64
-0x00
-0x5F
-0x00
-0x32
-0x00
-0x64
-0x00
-0x77
-0x00
-0x00
-0x00
-0x00
-0x00
-0x76
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0xc
-0x02
-0x20
-0x4E
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x9c
-0x13
-0x05
-0x00
-0x00
-0x00
-0x67
-0x00
-0x61
-0x00
-0xde
-0x07
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0xe8
-0x03
-0x98
-0x08
-0xc4
-0x09
-0x5A
-0x0d
-0x32
-0x00
-0x32
-0x00
-0x01
-0x00
-0x00
-0x00
-0xc
-0x02
-0x64
-0xfd
-0x00
-0x00
-0x00
-0x00
-0x8c
-0x00
-0x8c
-0x00
-0xf4
-0x01
-0x3c
-0x00
-0x01
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x01
-0x00
-0x00
-0x00
-0x64
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x00
-0x82
-0x14
-
-```
-
-# Type of answers from the inverter
-
-* type 1
-  seams to be the ID of the inverter
-* type 2 
-  seams to be the type of the inverter
-* type 3
-  ??
-* type 4
-  ??
-
-# Output on app
-
-readFile_1
-* 306 W Inverter
-* 319 W Pannel
-* 1,4kw Daly
-* 54,9 kw sum of all time
-  
-readFile_2
-* 58,1  total
-* 0,6 daly
-* 110 W Solar 
-* 110 W Inverter 
-* 100 W generator
-  
-
-## Data Structure
-Solar
-* pv1 voltage       66
-* pv2 voltage       0
-* pv1 current       1.6
-* pv2 current       0
-* pv1 input power   113
-* pv2 input power   0
-  
-Grid 
-* consume energy    0
-* grid power        103W
-* feed in energy    0
-  
-Off-grid
-* off-grid Voltage  0
-* off-grid current  0
-* off-grid power    0
-Battery 
-* capacity          0
-* voltage           0
-* power             0
-About
-* Iverter sn
-* dsp version       1.19
-* arm version       1.18
-
-  
-# maybe struct of data 
-*    temperature
-*    energy_today
-*    dc1_voltage
-*    dc2_voltage
-*    dc1_current
-*   dc2_current
-*   // AC Current
-*    // AC Voltage
-*    // AC Frequency
-*    // AC Power
-*    energy_total
-*    runtime_total
-*    status
-*    errorCode
+## Structure
