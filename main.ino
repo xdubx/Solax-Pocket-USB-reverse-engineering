@@ -20,7 +20,8 @@
  *  1 = send the values
  */
 
-#define workMode 0;
+#define workModeAPI true;
+#define workModeSEND false;
 #define debug false;
 
 // requests
@@ -41,8 +42,9 @@ const String keys[] = {
     "temp",
     "runTime"};
 
-const unsigned char *usbRegister[] = {0xaa, 0x55, 0x11, 0x02, 0x01, 0x53, 0x57, 0x41, 0x4D, 0x54, 0x4C, 0x59, 0x34, 0x5A, 0x4D, 0x1f, 0x04};
-const unsigned char *requestData[] = {0xaa, 0x55, 0x07, 0x01, 0x05, 0x0c, 0x01};
+const unsigned char usbRegister[] = {0xaa, 0x55, 0x11, 0x02, 0x01, 0x53, 0x57, 0x41, 0x4D, 0x54, 0x4C, 0x59, 0x34, 0x5A, 0x4D, 0x1f, 0x04};
+const unsigned char requestSerial[] = {0xaa, 0x55, 0x11, 0x02, 0x01, 0x53, 0x57, 0x41, 0x4D, 0x54, 0x4C, 0x59, 0x34, 0x5A, 0x4D, 0x1f, 0x04};
+const unsigned char requestData[] = {0xaa, 0x55, 0x07, 0x01, 0x05, 0x0c, 0x01};
 // END requests
 
 //GLOBAL VARS
@@ -59,9 +61,15 @@ void setup()
     Serial.begin(9600);
 
 #ifdef debug
-    //TODO: swap the uard? 
+    //TODO: swap the uard?
 #endif
 
+#ifdef workModeAPI
+    // create webserver
+
+#endif
+
+#ifdef workModeSEND
 
     bool wifi = createConnectionToWifi();
     if (wifi)
@@ -69,34 +77,32 @@ void setup()
         // register dongle
 
         // pull data
+        registerDongle();
+        memset(message, 0, sizeof(message));
 
-        // workmode
-        if (workMode)
-        {
-
-            // send to endpoint
-            // ESP.deepSleep(0); // for ~ 15 min?
-        }
-        else
-        {
-            // setup webserver
-        }
+        sleep(1);
+        requestInverterData();
+        sendRequest();
+        //     // send to endpoint
+        ESP.deepSleep(216000000000); // for ~1h
     }
     else
     {
         // go sleep or make something that the wifi is broke
     }
+
+#endif
+
+    // flush dataholder
+    memset(message, 0, sizeof(message));
 }
 
 void loop()
 {
-    // loop webserver
+#ifdef workModeAPI
+    //loop webserver
 
-    if (Serial.available() > 0 && count < 200)
-    {
-        message[count] = Serial.read();
-        count++;
-    }
+#endif
 }
 
 // wifi related stuff
@@ -172,6 +178,23 @@ void sendRequest()
 
 // END
 
+bool getInverterSerial()
+{
+    // request serial of inverter
+    Serial.print(requestSerial);
+    count = 0;
+
+    while (Serial.available() > 0 && count < 40)
+    {
+        message[count] = Serial.read();
+        count++;
+    }
+    // parse response
+#ifdef debug
+    Serial.println(message);
+#endif
+}
+
 /**
  * @brief register the usb dongle on the inverter
  * 
@@ -181,7 +204,31 @@ void sendRequest()
 bool registerDongle()
 {
     Serial.print(usbRegister);
-    //Serial.read(10); // Read 14 byts
+    count = 0;
+    while (Serial.available() > 0 && count < 10)
+    {
+        message[count] = Serial.read();
+        count++;
+    }
+#ifdef debug
+    Serial.println(message);
+#endif
+    // check message
+}
+
+bool requestInverterData()
+{
+    Serial.print(requestData);
+    count = 0;
+    while (Serial.available() > 0 && count < 200)
+    {
+        message[count] = Serial.read();
+        count++;
+    }
+#ifdef debug
+    Serial.println(message);
+#endif
+    // check message
 }
 
 /**
