@@ -10,6 +10,7 @@
  */
 
 #include <ESP8266WiFi.h>
+#include <WiFiClient.h>
 #include <ESP8266HTTPClient.h>
 #include "Arduino.h"
 
@@ -105,7 +106,7 @@ void setup()
         registerDongle();
         memset(message, 0, sizeof(message));
 
-        sleep(1);
+        delay(1);
         requestInverterData();
         sendRequest();
         //     // send to endpoint
@@ -180,9 +181,10 @@ void sendRequest()
 {
     if (WiFi.status() == WL_CONNECTED)
     {
+        WiFiClient client;
         HTTPClient http;
         String msg = decodeInverterRes();
-        http.begin(host); //TODO: handle not reachable error
+        http.begin(client, host); // TODO: handle not reachable error
         http.addHeader("Content-Type", "application/json");
 
         int httpCode = http.POST(msg);
@@ -282,8 +284,6 @@ bool requestInverterData()
  */
 String decodeInverterRes()
 {
-
-    uint32_t theTime = millis();
     // skip 6 bytes
     const int offset = 6;
     String json = "{";
