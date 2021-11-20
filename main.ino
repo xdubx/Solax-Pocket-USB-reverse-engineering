@@ -11,18 +11,26 @@
 
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
-#include "Wire.h"
 #include "Arduino.h"
 
 /**
  * @brief set the workmode of the esp
- *  0 = api endpoint over http
- *  1 = send the values
+ *  api endpoint over http server
+ *  send the values as json over http post
  */
 
-#define workModeAPI true;
-#define workModeSEND false;
-#define debug false;
+//#define workModeAPI;
+#define workModeSEND ;
+#define debug ;
+
+#ifdef workModeAPI
+#include <ESP8266WebServer.h>
+#include <ESP8266mDNS.h>
+// create webserver
+ESP8266WebServer server(80);
+//protoype function
+void handleRoot();
+#endif
 
 // requests
 const String keys[] = {
@@ -40,7 +48,8 @@ const String keys[] = {
     "eTotal",
     "eToday",
     "temp",
-    "runTime"};
+    "runTime",
+    "timestamp"};
 
 const unsigned char usbRegister[] = {0xaa, 0x55, 0x11, 0x02, 0x01, 0x53, 0x57, 0x41, 0x4D, 0x54, 0x4C, 0x59, 0x34, 0x5A, 0x4D, 0x1f, 0x04};
 const unsigned char requestSerial[] = {0xaa, 0x55, 0x11, 0x02, 0x01, 0x53, 0x57, 0x41, 0x4D, 0x54, 0x4C, 0x59, 0x34, 0x5A, 0x4D, 0x1f, 0x04};
@@ -58,24 +67,40 @@ const char *host = "url here"; // example http://192.168.1.1:8085/hello
 
 void setup()
 {
-    Serial.begin(9600);
-
+    Serial1.begin(9600);
+    Serial1.set_tx(15);
 #ifdef debug
-    //TODO: swap the uard?
-#endif
-
-#ifdef workModeAPI
-    // create webserver
-
-#endif
-
-#ifdef workModeSEND
+    Serial.begin(9600);
 
     bool wifi = createConnectionToWifi();
     if (wifi)
     {
-        // register dongle
+#endif
+#ifdef workModeAPI
+        // Start the mDNS responder for solax.local
+        if (MDNS.begin("solax"))
+        {
+#ifdef debug
+            Serial.println("mDNS responder started");
+#endif
+        }
+        else
+        {
+#ifdef debug
+            Serial.println("Error setting up MDNS responder!");
+#endif
+        }
 
+        server.on("/", handleRoot);
+        server.begin(); // Actually start the server
+#ifdef debug
+        Serial.println("HTTP server started");
+#endif
+#endif
+
+#ifdef workModeSEND
+
+        // register dongle
         // pull data
         registerDongle();
         memset(message, 0, sizeof(message));
@@ -85,13 +110,12 @@ void setup()
         sendRequest();
         //     // send to endpoint
         ESP.deepSleep(216000000000); // for ~1h
+#endif
     }
     else
     {
         // go sleep or make something that the wifi is broke
     }
-
-#endif
 
     // flush dataholder
     memset(message, 0, sizeof(message));
@@ -101,7 +125,7 @@ void loop()
 {
 #ifdef workModeAPI
     //loop webserver
-
+    server.handleClient();
 #endif
 }
 
@@ -181,17 +205,24 @@ void sendRequest()
 bool getInverterSerial()
 {
     // request serial of inverter
-    Serial.print(requestSerial);
+    for (size_t i = 0; i < sizeof(requestSerial); i++)
+    {
+        Serial1.print(requestSerial[i]);
+    }
     count = 0;
 
-    while (Serial.available() > 0 && count < 40)
+    while (Serial1.available() > 0 && count < 40)
     {
-        message[count] = Serial.read();
+        message[count] = Serial1.read();
         count++;
     }
     // parse response
 #ifdef debug
-    Serial.println(message);
+    for (size_t i = 0; i < count; i++)
+    {
+        Serial.print(message[i]);
+    }
+    Serial.println("");
 #endif
 }
 
@@ -203,30 +234,44 @@ bool getInverterSerial()
  */
 bool registerDongle()
 {
-    Serial.print(usbRegister);
-    count = 0;
-    while (Serial.available() > 0 && count < 10)
+    for (size_t i = 0; i < sizeof(usbRegister); i++)
     {
-        message[count] = Serial.read();
+        Serial1.print(usbRegister[i]);
+    }
+    count = 0;
+    while (Serial1.available() > 0 && count < 10)
+    {
+        message[count] = Serial1.read();
         count++;
     }
 #ifdef debug
-    Serial.println(message);
+    for (size_t i = 0; i < count; i++)
+    {
+        Serial.print(message[i]);
+    }
+    Serial.println("");
 #endif
     // check message
 }
 
 bool requestInverterData()
 {
-    Serial.print(requestData);
-    count = 0;
-    while (Serial.available() > 0 && count < 200)
+    for (size_t i = 0; i < sizeof(requestData); i++)
     {
-        message[count] = Serial.read();
+        Serial1.print(requestData[i]);
+    }
+    count = 0;
+    while (Serial1.available() > 0 && count < 200)
+    {
+        message[count] = Serial1.read();
         count++;
     }
 #ifdef debug
-    Serial.println(message);
+    for (size_t i = 0; i < count; i++)
+    {
+        Serial.print(message[i]);
+    }
+    Serial.println("");
 #endif
     // check message
 }
@@ -237,7 +282,9 @@ bool requestInverterData()
  */
 String decodeInverterRes()
 {
-    // skip 4 bytes
+
+    uint32_t theTime = millis();
+    // skip 6 bytes
     const int offset = 6;
     String json = "{";
     json = json + "\"" + keys[0] + "\":" + String(get_16bit(offset + 0) * 0.1f) + ",";
@@ -280,3 +327,24 @@ uint32_t get_32bit(size_t i)
 {
     return uint32_t((message[i + 3] << 24) | (message[i + 2] << 16) | (message[i + 1] << 8) | message[i]);
 };
+
+#ifdef workmodeAPI
+/**
+ * weberver section
+ */
+
+void handleRoot()
+{
+    bool success = requestInverterData();
+    // request data
+    if (success)
+    {
+        server.send(200, "application/json", decodeInverterRes());
+    }
+    else
+    {
+        server.send(200, "application/json", String("{\"error\": \"Failed to request data from inverter\""
+    });
+}
+}
+#endif

@@ -93,6 +93,7 @@ Spezial thanks go to @tuxmike
 * Battery
 If you have a battery connected to your inverter -> You can read the values out and print it in a issue.
 
+
 # ESP8266
 
 ## Pinout of ESP
@@ -100,9 +101,35 @@ If you have a battery connected to your inverter -> You can read the values out 
 |---|---|
 |GND|GND|
 |VIN|5V|
-|GPIO1|TX|
-|GPIO3|RX|
+|GPI13 (D7) (RXD2)|TX|
+|GPI15 (D8)|RX|
   
 TODO: add image 
 
+## Design
+
+There are 2 ways how the ESP was programmed. Once as a web server and active wifi connection and MDNS. Of course consumes more power than the second variant with a short setup to the WLAN and then an HTTP post request to an endpoint. After that the WLAN is closed and the ESP goes into deep sleep mode.
+
 ## Structure
+### JSON
+For ENDPOINT Data and sended post request
+```json
+{
+    "gridVoltage": number,
+    "gridCurrent": number,
+    "gridPower": number,
+    "pv1Voltage": number,
+    "pv1Current": number,
+    "pv2Voltage": number,
+    "pv2Current": number,
+    "pv1Power": number,
+    "pv2Power": number,
+    "gridFrequency": number,
+    "mode": number,
+    "eTotal": number,
+    "eToday": number,
+    "temp": number,
+    "runTime": number,
+}
+
+```
