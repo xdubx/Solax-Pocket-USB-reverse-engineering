@@ -20,9 +20,9 @@
  *  send the values as json over http post
  */
 
-//#define workModeAPI;
-#define workModeSEND ;
-#define debug ;
+//#define workModeAPI
+#define workModeSEND
+#define debug
 
 #ifdef workModeAPI
 #include <ESP8266WebServer.h>
@@ -106,7 +106,7 @@ void setup()
         registerDongle();
         memset(message, 0, sizeof(message));
 
-        delay(1);
+        delay(100);
         requestInverterData();
         sendRequest();
         //     // send to endpoint
@@ -116,6 +116,8 @@ void setup()
     else
     {
         // go sleep or make something that the wifi is broke
+        handleErrorLED(3, 1, 1);
+        ESP.deepSleep(216000000000); // for ~1h
     }
 
     // flush dataholder
@@ -169,7 +171,6 @@ bool createConnectionToWifi()
     }
     if (tCounter >= 60)
     {
-        //TODO:  when tConter is over 60 sec a wifi error apears
 #ifdef debug
         Serial.println("WLAN failed");
 #endif
@@ -191,14 +192,18 @@ void sendRequest()
 #ifdef debug
         Serial.println(httpCode);
 #endif
-        //TODO: handle error
+        if (httpCode != 200)
+        {
+            handleErrorLED(2, 1, 2);
+        }
     }
     else
     {
 #ifdef debug
-        Serial.println("Error in WiFi connection");
+        Serial.println("Error in WiFi connection at runtime");
 #endif
-        //TODO: handle error
+        // wifi get lost at runtime
+        handleErrorLED(3, 1, 3);
     }
 }
 
@@ -348,3 +353,29 @@ void handleRoot()
 }
 }
 #endif
+
+/**
+ * @brief create a user feedback by the build in LED
+ * 
+ * @param firstBlink 
+ * @param secBlind 
+ * @param thirdBlink 
+ */
+void handleErrorLED(int firstBlink, int secBlind, int thirdBlink)
+{
+    for (int index = 0; index < 3; index++)
+    {
+        digitalWrite(LED_BUILTIN, HIGH);
+        delay(1000 * firstBlink);
+        digitalWrite(LED_BUILTIN, LOW);
+        delay(1000);
+        digitalWrite(LED_BUILTIN, HIGH);
+        delay(1000 * secBlind);
+        digitalWrite(LED_BUILTIN, LOW);
+        delay(1000);
+        digitalWrite(LED_BUILTIN, HIGH);
+        delay(1000 * thirdBlink);
+        digitalWrite(LED_BUILTIN, LOW);
+        delay(5000);
+    }
+}
