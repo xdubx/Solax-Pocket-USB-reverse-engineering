@@ -58,7 +58,7 @@ const unsigned char requestData[] = {0xaa, 0x55, 0x07, 0x01, 0x05, 0x0c, 0x01};
 // END requests
 
 //GLOBAL VARS
-unsigned char message[200];
+unsigned char message[406];
 int count = 0;
 const char *ssid = "your wifi here";
 const char *password = "your wifi pw here";
@@ -156,7 +156,6 @@ bool createConnectionToWifi()
     {
         delay(1000);
         Serial.println(WiFi.status());
-        // TODO break while for error if dont connect after 1 min
         if (WiFi.status() == WL_CONNECTED)
         {
 #ifdef debug
@@ -178,6 +177,10 @@ bool createConnectionToWifi()
     }
 }
 
+/**
+ * @brief send a request to the given host
+ * 
+ */
 void sendRequest()
 {
     if (WiFi.status() == WL_CONNECTED)
@@ -209,6 +212,12 @@ void sendRequest()
 
 // END
 
+/**
+ * @brief Get the Inverter Serial object and write it into the message block
+ * 
+ * @return true if the checksum are correct
+ * @return false if not
+ */
 bool getInverterSerial()
 {
     // request serial of inverter
@@ -231,15 +240,17 @@ bool getInverterSerial()
     }
     Serial.println("");
 #endif
+    // calc LSB Checksum
+    uint16_t checkSum = calcCheckSum(message, 44);
+    uint16_t check = get_16bit(45);
+    return checkSum == check;
 }
 
 /**
  * @brief register the usb dongle on the inverter
  * 
- * @return true if register was successfull
- * @return false register failed
  */
-bool registerDongle()
+void registerDongle()
 {
     for (size_t i = 0; i < sizeof(usbRegister); i++)
     {
@@ -258,9 +269,15 @@ bool registerDongle()
     }
     Serial.println("");
 #endif
-    // check message
+    // has no checksum look readme.md
 }
 
+/**
+ * @brief request data at the inverter
+ * 
+ * @return true  if the checksum is correct
+ * @return false if the checksum not match
+ */
 bool requestInverterData()
 {
     for (size_t i = 0; i < sizeof(requestData); i++)
@@ -280,7 +297,11 @@ bool requestInverterData()
     }
     Serial.println("");
 #endif
-    // check message
+
+    // calc LSB Checksum
+    uint16_t checkSum = calcCheckSum(message, 204);
+    uint16_t check = get_16bit(205);
+    return checkSum == check;
 }
 
 /**
@@ -378,4 +399,21 @@ void handleErrorLED(int firstBlink, int secBlind, int thirdBlink)
         digitalWrite(LED_BUILTIN, LOW);
         delay(5000);
     }
+}
+
+/**
+ * @brief calc the checksum of the message block
+ * 
+ * @param data 
+ * @param len 
+ * @return uint16_t 
+ */
+uint16_t calcCheckSum(const uint8_t data[], const uint8_t len)
+{
+    uint16_t checksum = 0;
+    for (uint8_t index = 0; index <= len; index++)
+    {
+        checksum = checksum + data[index];
+    }
+    return checksum;
 }
