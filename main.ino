@@ -49,12 +49,12 @@ const String keys[] = {
     "eTotal",
     "eToday",
     "temp",
-    "runTime",
-    "timestamp"};
+    "runTime"};
 
 const unsigned char usbRegister[] = {0xaa, 0x55, 0x11, 0x02, 0x01, 0x53, 0x57, 0x41, 0x4D, 0x54, 0x4C, 0x59, 0x34, 0x5A, 0x4D, 0x1f, 0x04};
 const unsigned char requestSerial[] = {0xaa, 0x55, 0x11, 0x02, 0x01, 0x53, 0x57, 0x41, 0x4D, 0x54, 0x4C, 0x59, 0x34, 0x5A, 0x4D, 0x1f, 0x04};
 const unsigned char requestData[] = {0xaa, 0x55, 0x07, 0x01, 0x05, 0x0c, 0x01};
+const unsigned char requestSettings[] = {0xaa, 0x55, 0x07, 0x01, 0x16, 0x1D, 0x01};
 // END requests
 
 //GLOBAL VARS
@@ -93,6 +93,7 @@ void setup()
         }
 
         server.on("/", handleRoot);
+        //TODO: add response for settings
         server.begin(); // Actually start the server
 #ifdef debug
         Serial.println("HTTP server started");
@@ -303,6 +304,39 @@ bool requestInverterData()
     uint16_t check = get_16bit(205);
     return checkSum == check;
 }
+
+/** TODO: create for this a parser
+ * @brief request the inverter settings
+ * 
+ * @return true 
+ * @return false 
+ */
+bool requestInverterSettings()
+{
+    for (size_t i = 0; i < sizeof(requestSettings); i++)
+    {
+        Serial1.print(requestSettings[i]);
+    }
+    count = 0;
+    while (Serial1.available() > 0 && count < 200)
+    {
+        message[count] = Serial1.read();
+        count++;
+    }
+#ifdef debug
+    for (size_t i = 0; i < count; i++)
+    {
+        Serial.print(message[i]);
+    }
+    Serial.println("");
+#endif
+
+    // calc LSB Checksum
+    uint16_t checkSum = calcCheckSum(message, 404);
+    uint16_t check = get_16bit(405);
+    return checkSum == check;
+}
+
 
 /**
  * @brief read and decode the inverter request
