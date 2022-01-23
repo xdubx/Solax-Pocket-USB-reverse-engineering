@@ -60,8 +60,8 @@ Spezial thanks go to [@tuxmike](https://github.com/tuxmike)
 |2|uint16|Grid current|0.1A|
 |4|uint16|Grid power|1W|
 |6|uint16|PV1 voltage|0.1V|
-|8|uint16|PV2 current|0.1A|
-|10|uint16|PV1 voltage|0.1V|
+|8|uint16|PV2 voltage|0.1A|
+|10|uint16|PV1 current|0.1V|
 |12|uint16|PV2 current|0.1A|
 |14|uint16|PV1 power|1W|
 |16|uint16|PV2 power|1W|
@@ -71,7 +71,7 @@ Spezial thanks go to [@tuxmike](https://github.com/tuxmike)
 |26|uint16|E Today|0.1kwh|
 |28|?|?|?|
 |...|...|...|...|
-|78|uint16|Temperature|°C (?)|
+|78|uint16|Inverter Temperature|°C|
 |82|uint32|Runtime-total|1h|
 |86|?|?|?|
 |...|...|...|...|
@@ -168,3 +168,11 @@ For ENDPOINT Data and sended post request
 }
 
 ```
+
+## Code 
+Still missing freatures are: 
+- Parse Serial
+- Parse Settings
+- pwr limit
+  
+Notice: Only the register dongle and request data is tested

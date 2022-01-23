@@ -10,8 +10,6 @@
  */
 
 #include <ESP8266WiFi.h>
-#include <WiFiClient.h>
-#include <ESP8266HTTPClient.h>
 #include "Arduino.h"
 
 /**
@@ -24,6 +22,11 @@
 #define workModeSEND
 #define debug
 
+#ifdef workModeSEND
+#include <WiFiClient.h>
+#include <ESP8266HTTPClient.h>
+#endif
+
 #ifdef workModeAPI
 #include <ESP8266WebServer.h>
 #include <ESP8266mDNS.h>
@@ -33,14 +36,15 @@ ESP8266WebServer server(80);
 void handleRoot();
 #endif
 
+
 // requests
 const String keys[] = {
     "gridVoltage",
     "gridCurrent",
     "gridPower",
     "pv1Voltage",
-    "pv1Current",
     "pv2Voltage",
+    "pv1Current",
     "pv2Current",
     "pv1Power",
     "pv2Power",
@@ -52,43 +56,43 @@ const String keys[] = {
     "runTime"};
 
 const unsigned char usbRegister[] = {0xaa, 0x55, 0x11, 0x02, 0x01, 0x53, 0x57, 0x41, 0x4D, 0x54, 0x4C, 0x59, 0x34, 0x5A, 0x4D, 0x1f, 0x04};
-const unsigned char requestSerial[] = {0xaa, 0x55, 0x11, 0x02, 0x01, 0x53, 0x57, 0x41, 0x4D, 0x54, 0x4C, 0x59, 0x34, 0x5A, 0x4D, 0x1f, 0x04};
-const unsigned char requestData[] = {0xaa, 0x55, 0x07, 0x01, 0x05, 0x0c, 0x01};
+const unsigned char requestSerial[] = {0xaa, 0x55, 0x07, 0x01, 0x05, 0x0c, 0x01}; // TODO: optimise this function onto a facory with 2 parameter
+const unsigned char requestData[] = {0xaa, 0x55, 0x07, 0x01, 0x0C, 0x13, 0x01};
 const unsigned char requestSettings[] = {0xaa, 0x55, 0x07, 0x01, 0x16, 0x1D, 0x01};
 // END requests
 
 //GLOBAL VARS
 unsigned char message[406];
-int count = 0;
 const char *ssid = "your wifi here";
 const char *password = "your wifi pw here";
-const char *host = "url here"; // example http://192.168.1.1:8085/hello
-
+const char *host = "url here"; // example http://raspberrypi :3001/data
+#define timeout 5000
 //END GLOBAL VARS
 
 void setup()
 {
-    Serial1.begin(9600);
-    Serial1.set_tx(15);
-#ifdef debug
     Serial.begin(9600);
-
+    //Serial.set_tx(1);
+#ifdef debug
+    Serial1.begin(9600);
+#endif
+    //clear buffer
+    memset(message, 0, sizeof(message));
     bool wifi = createConnectionToWifi();
     if (wifi)
     {
-#endif
 #ifdef workModeAPI
         // Start the mDNS responder for solax.local
         if (MDNS.begin("solax"))
         {
 #ifdef debug
-            Serial.println("mDNS responder started");
+            Serial1.println("mDNS responder started");
 #endif
         }
         else
         {
 #ifdef debug
-            Serial.println("Error setting up MDNS responder!");
+            Serial1.println("Error setting up MDNS responder!");
 #endif
         }
 
@@ -96,7 +100,7 @@ void setup()
         //TODO: add response for settings
         server.begin(); // Actually start the server
 #ifdef debug
-        Serial.println("HTTP server started");
+        Serial1.println("HTTP server started");
 #endif
 #endif
 
@@ -104,25 +108,25 @@ void setup()
 
         // register dongle
         // pull data
-        registerDongle();
+        bool reg = registerDongle();
         memset(message, 0, sizeof(message));
-
-        delay(100);
-        requestInverterData();
-        sendRequest();
-        //     // send to endpoint
-        ESP.deepSleep(216000000000); // for ~1h
+        bool request = requestInverterData();
+        if (!request)
+        {
+            handleErrorLED(2, 2, 3);
+        }
+        else
+        {
+            sendRequest();
+        }
 #endif
     }
     else
     {
-        // go sleep or make something that the wifi is broke
+        // go sleep and wifi is broke
         handleErrorLED(3, 1, 1);
-        ESP.deepSleep(216000000000); // for ~1h
     }
-
-    // flush dataholder
-    memset(message, 0, sizeof(message));
+    ESP.deepSleep(3600e6); // for ~1h
 }
 
 void loop()
@@ -146,9 +150,9 @@ bool createConnectionToWifi()
     // Connect to WiFi network
 
 #ifdef debug
-    Serial.println("-------------------");
-    Serial.print("Connecting to ");
-    Serial.println(ssid);
+    Serial1.println("-------------------");
+    Serial1.print("Connecting to ");
+    Serial1.println(ssid);
 #endif
     WiFi.disconnect();
     WiFi.begin(ssid, password);
@@ -156,14 +160,16 @@ bool createConnectionToWifi()
     while (tCounter < 60)
     {
         delay(1000);
-        Serial.println(WiFi.status());
+#ifdef debug
+        Serial1.println(WiFi.status());
+#endif
         if (WiFi.status() == WL_CONNECTED)
         {
 #ifdef debug
-            Serial.println("");
-            Serial.println("WiFi connected: ");
-            Serial.print(WiFi.localIP());
-            Serial.println();
+            Serial1.println("");
+            Serial1.println("WiFi connected: ");
+            Serial1.print(WiFi.localIP());
+            Serial1.println();
 #endif
             return true;
         }
@@ -172,7 +178,7 @@ bool createConnectionToWifi()
     if (tCounter >= 60)
     {
 #ifdef debug
-        Serial.println("WLAN failed");
+        Serial1.println("WLAN failed");
 #endif
         return false;
     }
@@ -186,17 +192,18 @@ void sendRequest()
 {
     if (WiFi.status() == WL_CONNECTED)
     {
-        WiFiClient client;
         HTTPClient http;
         String msg = decodeInverterRes();
-        http.begin(client, host); // TODO: handle not reachable error
+        WiFiClient wifiClient;
+        http.begin(wifiClient, host); // TODO: handle not reachable error
         http.addHeader("Content-Type", "application/json");
 
         int httpCode = http.POST(msg);
 #ifdef debug
-        Serial.println(httpCode);
+        Serial1.println("Http Code: ");
+        Serial1.println(httpCode);
 #endif
-        if (httpCode != 200)
+        if (httpCode != HTTP_CODE_OK)
         {
             handleErrorLED(2, 1, 2);
         }
@@ -204,7 +211,7 @@ void sendRequest()
     else
     {
 #ifdef debug
-        Serial.println("Error in WiFi connection at runtime");
+        Serial1.println("Error in WiFi connection at runtime");
 #endif
         // wifi get lost at runtime
         handleErrorLED(3, 1, 3);
@@ -224,26 +231,37 @@ bool getInverterSerial()
     // request serial of inverter
     for (size_t i = 0; i < sizeof(requestSerial); i++)
     {
-        Serial1.print(requestSerial[i]);
+        Serial.write(requestSerial[i]);
     }
-    count = 0;
 
-    while (Serial1.available() > 0 && count < 40)
+    int counter = 0;
+    long lastTime = millis();
+    while (counter < 47)
     {
-        message[count] = Serial1.read();
-        count++;
+        if (Serial.available() > 0)
+        {
+            message[counter] = Serial.read();
+            counter++;
+        }
+        else
+        {
+            if (millis() - lastTime > timeout)
+            {
+                break;
+            }
+        }
     }
     // parse response
 #ifdef debug
-    for (size_t i = 0; i < count; i++)
+    for (size_t i = 0; i < counter; i++)
     {
-        Serial.print(message[i]);
+        Serial1.print(message[i]);
     }
-    Serial.println("");
+    Serial1.println("");
 #endif
     // calc LSB Checksum
-    uint16_t checkSum = calcCheckSum(message, 44);
-    uint16_t check = get_16bit(45);
+    uint16_t checkSum = calcCheckSum(message, 45);
+    uint16_t check = get_16bit(46);
     return checkSum == check;
 }
 
@@ -251,26 +269,49 @@ bool getInverterSerial()
  * @brief register the usb dongle on the inverter
  * 
  */
-void registerDongle()
+bool registerDongle()
 {
     for (size_t i = 0; i < sizeof(usbRegister); i++)
     {
-        Serial1.print(usbRegister[i]);
+        Serial.write(usbRegister[i]);
     }
-    count = 0;
-    while (Serial1.available() > 0 && count < 10)
+    int counter = 0;
+    long lastTime = millis();
+    while (counter < 14)
     {
-        message[count] = Serial1.read();
-        count++;
+        if (Serial.available() > 0)
+        {
+            message[counter] = Serial.read();
+            counter++;
+        }
+        else
+        {
+            if (millis() - lastTime > timeout)
+            {
+                break;
+            }
+        }
     }
+
 #ifdef debug
-    for (size_t i = 0; i < count; i++)
+    for (size_t i = 0; i < 14; i++)
     {
-        Serial.print(message[i]);
+        Serial1.write(message[i]);
     }
-    Serial.println("");
+    Serial1.println("");
 #endif
     // has no checksum look readme.md
+    // compare it with answer
+    bool check = true;
+    for (size_t index = 0; index < 14; index++)
+    {
+        if (usbRegister[index] != message[index])
+        {
+            check = false;
+        }
+    }
+
+    return check;
 }
 
 /**
@@ -283,20 +324,47 @@ bool requestInverterData()
 {
     for (size_t i = 0; i < sizeof(requestData); i++)
     {
-        Serial1.print(requestData[i]);
+        Serial.write(requestData[i]);
     }
-    count = 0;
-    while (Serial1.available() > 0 && count < 200)
+    int counter = 0;
+    long lastTime = millis();
+    bool start = false;
+    while (counter < 207)
     {
-        message[count] = Serial1.read();
-        count++;
+        if (Serial.available() > 0)
+        {
+            u_int8_t in = Serial.read();
+            if (start)
+            {
+                message[counter] = in;
+                counter++;
+            }
+            else
+            {
+                // filter the spam before the message in this case it is a b'M'
+                if (in == 0xaa)
+                {
+                    start = true;
+                    message[counter] = in;
+                    counter++;
+                }
+            }
+        }
+        else
+        {
+            if (millis() - lastTime > timeout)
+            {
+                break;
+            }
+        }
     }
+
 #ifdef debug
-    for (size_t i = 0; i < count; i++)
+    for (size_t i = 0; i < counter; i++)
     {
-        Serial.print(message[i]);
+        Serial1.write(message[i]);
     }
-    Serial.println("");
+    Serial1.println("");
 #endif
 
     // calc LSB Checksum
@@ -307,7 +375,7 @@ bool requestInverterData()
 
 /** TODO: create for this a parser
  * @brief request the inverter settings
- * 
+ * 1
  * @return true 
  * @return false 
  */
@@ -315,20 +383,33 @@ bool requestInverterSettings()
 {
     for (size_t i = 0; i < sizeof(requestSettings); i++)
     {
-        Serial1.print(requestSettings[i]);
+        Serial.write(requestSettings[i]);
     }
-    count = 0;
-    while (Serial1.available() > 0 && count < 200)
+
+    int counter = 0;
+    long lastTime = millis();
+    while (counter < 407)
     {
-        message[count] = Serial1.read();
-        count++;
+        if (Serial.available() > 0)
+        {
+            message[counter] = Serial.read();
+            counter++;
+        }
+        else
+        {
+            if (millis() - lastTime > timeout)
+            {
+                break;
+            }
+        }
     }
+
 #ifdef debug
-    for (size_t i = 0; i < count; i++)
+    for (size_t i = 0; i < counter; i++)
     {
-        Serial.print(message[i]);
+        Serial1.print(message[i], HEX);
     }
-    Serial.println("");
+    Serial1.println("");
 #endif
 
     // calc LSB Checksum
@@ -337,15 +418,14 @@ bool requestInverterSettings()
     return checkSum == check;
 }
 
-
 /**
  * @brief read and decode the inverter request
  * 
  */
 String decodeInverterRes()
 {
-    // skip 6 bytes
-    const int offset = 6;
+    // skip 5 bytes
+    const int offset = 5;
     String json = "{";
     json = json + "\"" + keys[0] + "\":" + String(get_16bit(offset + 0) * 0.1f) + ",";
     json = json + "\"" + keys[1] + "\":" + String(get_16bit(offset + 2) * 0.1f) + ",";
@@ -360,7 +440,7 @@ String decodeInverterRes()
     json = json + "\"" + keys[10] + "\":" + String(get_16bit(offset + 20)) + ",";
     json = json + "\"" + keys[11] + "\":" + String(get_32bit(offset + 22) * 0.1f) + ",";
     json = json + "\"" + keys[12] + "\":" + String(get_16bit(offset + 26) * 0.1f) + ",";
-    json = json + "\"" + keys[13] + "\":" + String(get_16bit(offset + 78) * 0.1f) + ",";
+    json = json + "\"" + keys[13] + "\":" + String(get_16bit(offset + 78)) + ",";
     json = json + "\"" + keys[14] + "\":" + String(get_16bit(offset + 82)) + "}";
 
     return json;
@@ -403,7 +483,7 @@ void handleRoot()
     }
     else
     {
-        server.send(200, "application/json", String("{\"error\": \"Failed to request data from inverter\""
+        server.send(200, "application/json", String("{\"error\": \"Failed to request data from inverter\"}")
     });
 }
 }
@@ -421,17 +501,17 @@ void handleErrorLED(int firstBlink, int secBlind, int thirdBlink)
     for (int index = 0; index < 3; index++)
     {
         digitalWrite(LED_BUILTIN, HIGH);
-        delay(1000 * firstBlink);
+        delay(5000 * firstBlink);
         digitalWrite(LED_BUILTIN, LOW);
-        delay(1000);
+        delay(3000);
         digitalWrite(LED_BUILTIN, HIGH);
-        delay(1000 * secBlind);
+        delay(5000 * secBlind);
         digitalWrite(LED_BUILTIN, LOW);
-        delay(1000);
+        delay(3000);
         digitalWrite(LED_BUILTIN, HIGH);
-        delay(1000 * thirdBlink);
+        delay(5000 * thirdBlink);
         digitalWrite(LED_BUILTIN, LOW);
-        delay(5000);
+        delay(3000);
     }
 }
 
