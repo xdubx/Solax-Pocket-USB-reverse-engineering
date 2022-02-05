@@ -20,7 +20,13 @@
 
 //#define workModeAPI
 #define workModeSEND
-#define debug
+
+/**
+ * @brief only one of both modes are posible if you activate both the controller crashed Serial1 and buildin led are on pin 2
+ * 
+ */
+//#define debugSERIAL
+//#define debugLED
 
 #ifdef workModeSEND
 #include <WiFiClient.h>
@@ -35,7 +41,6 @@ ESP8266WebServer server(80);
 //protoype function
 void handleRoot();
 #endif
-
 
 // requests
 const String keys[] = {
@@ -62,18 +67,24 @@ const unsigned char requestSettings[] = {0xaa, 0x55, 0x07, 0x01, 0x16, 0x1D, 0x0
 // END requests
 
 //GLOBAL VARS
-unsigned char message[406];
-const char *ssid = "your wifi here";
-const char *password = "your wifi pw here";
-const char *host = "url here"; // example http://raspberrypi :3001/data
+unsigned char message[206];
+const char *ssid = "your ssid";
+const char *password = "your pw";
+const char *host = "your destination"; // example http://raspberrypi:3001/data
 #define timeout 5000
 //END GLOBAL VARS
 
 void setup()
 {
+    // delay 10 sec if the inverter has not enouth power and rebooting 
+    delay(10000);
+#ifdef debugLED
+    pinMode(2, OUTPUT);
+    digitalWrite(2, HIGH);
+#endif
     Serial.begin(9600);
     //Serial.set_tx(1);
-#ifdef debug
+#ifdef debugSERIAL
     Serial1.begin(9600);
 #endif
     //clear buffer
@@ -81,17 +92,18 @@ void setup()
     bool wifi = createConnectionToWifi();
     if (wifi)
     {
+
 #ifdef workModeAPI
         // Start the mDNS responder for solax.local
         if (MDNS.begin("solax"))
         {
-#ifdef debug
+#ifdef debugSERIAL
             Serial1.println("mDNS responder started");
 #endif
         }
         else
         {
-#ifdef debug
+#ifdef debugSERIAL
             Serial1.println("Error setting up MDNS responder!");
 #endif
         }
@@ -99,7 +111,7 @@ void setup()
         server.on("/", handleRoot);
         //TODO: add response for settings
         server.begin(); // Actually start the server
-#ifdef debug
+#ifdef debugSERIAL
         Serial1.println("HTTP server started");
 #endif
 #endif
@@ -109,24 +121,43 @@ void setup()
         // register dongle
         // pull data
         bool reg = registerDongle();
-        memset(message, 0, sizeof(message));
-        bool request = requestInverterData();
-        if (!request)
+        delay(50);
+        if (reg)
         {
-            handleErrorLED(2, 2, 3);
+            memset(message, 0, sizeof(message));
+            bool request = requestInverterData();
+            if (!request)
+            {
+#ifdef debugLED
+                handleErrorLED(2);
+#endif
+            }
+            else
+            {
+                sendRequest();
+            }
         }
         else
         {
-            sendRequest();
+#ifdef debugLED
+            handleErrorLED(1);
+#endif
         }
 #endif
     }
     else
     {
-        // go sleep and wifi is broke
-        handleErrorLED(3, 1, 1);
+// go sleep and wifi is broke
+#ifdef debugLED
+        handleErrorLED(3);
+#endif
     }
-    ESP.deepSleep(3600e6); // for ~1h
+#ifdef debugSERIAL
+    Serial1.print("Go to deep sleep");
+#endif
+    WiFi.disconnect();
+    ESP.deepSleep(36e8); // for ~1h
+    delay(10);
 }
 
 void loop()
@@ -149,7 +180,7 @@ bool createConnectionToWifi()
 {
     // Connect to WiFi network
 
-#ifdef debug
+#ifdef debugSERIAL
     Serial1.println("-------------------");
     Serial1.print("Connecting to ");
     Serial1.println(ssid);
@@ -160,12 +191,12 @@ bool createConnectionToWifi()
     while (tCounter < 60)
     {
         delay(1000);
-#ifdef debug
+#ifdef debugSERIAL
         Serial1.println(WiFi.status());
 #endif
         if (WiFi.status() == WL_CONNECTED)
         {
-#ifdef debug
+#ifdef debugSERIAL
             Serial1.println("");
             Serial1.println("WiFi connected: ");
             Serial1.print(WiFi.localIP());
@@ -177,7 +208,7 @@ bool createConnectionToWifi()
     }
     if (tCounter >= 60)
     {
-#ifdef debug
+#ifdef debugSERIAL
         Serial1.println("WLAN failed");
 #endif
         return false;
@@ -192,30 +223,44 @@ void sendRequest()
 {
     if (WiFi.status() == WL_CONNECTED)
     {
+        WiFiClient wifiClient;
         HTTPClient http;
         String msg = decodeInverterRes();
-        WiFiClient wifiClient;
+
         http.begin(wifiClient, host); // TODO: handle not reachable error
         http.addHeader("Content-Type", "application/json");
 
         int httpCode = http.POST(msg);
-#ifdef debug
+        String payload = http.getString();
+
+        http.end();
+        // do not set serial over or in http request the esp is crashing with exeption 9
+
+        if (httpCode != HTTP_CODE_OK)
+        {
+#ifdef debugLED
+            handleErrorLED(4);
+#endif
+#ifdef debugSERIAL
         Serial1.println("Http Code: ");
         Serial1.println(httpCode);
 #endif
-        if (httpCode != HTTP_CODE_OK)
-        {
-            handleErrorLED(2, 1, 2);
         }
     }
     else
     {
-#ifdef debug
+#ifdef debugSERIAL
         Serial1.println("Error in WiFi connection at runtime");
 #endif
         // wifi get lost at runtime
-        handleErrorLED(3, 1, 3);
+#ifdef debugLED
+
+        handleErrorLED(3);
+#endif
     }
+#ifdef debugSERIAL
+    Serial1.println("End Function");
+#endif
 }
 
 // END
@@ -252,12 +297,11 @@ bool getInverterSerial()
         }
     }
     // parse response
-#ifdef debug
+#ifdef debugSERIAL
     for (size_t i = 0; i < counter; i++)
     {
         Serial1.print(message[i]);
     }
-    Serial1.println("");
 #endif
     // calc LSB Checksum
     uint16_t checkSum = calcCheckSum(message, 45);
@@ -293,7 +337,7 @@ bool registerDongle()
         }
     }
 
-#ifdef debug
+#ifdef debugSERIAL
     for (size_t i = 0; i < 14; i++)
     {
         Serial1.write(message[i]);
@@ -359,7 +403,7 @@ bool requestInverterData()
         }
     }
 
-#ifdef debug
+#ifdef debugSERIAL
     for (size_t i = 0; i < counter; i++)
     {
         Serial1.write(message[i]);
@@ -370,14 +414,15 @@ bool requestInverterData()
     // calc LSB Checksum
     uint16_t checkSum = calcCheckSum(message, 204);
     uint16_t check = get_16bit(205);
+    if (checkSum == 0x00)
+        return false;
     return checkSum == check;
 }
 
-/** TODO: create for this a parser
+/** TODO: create for this a parser and increase message size to 407 bytes
  * @brief request the inverter settings
- * 1
- * @return true 
- * @return false 
+ * @return true
+ * @return false
  */
 bool requestInverterSettings()
 {
@@ -404,7 +449,7 @@ bool requestInverterSettings()
         }
     }
 
-#ifdef debug
+#ifdef debugSERIAL
     for (size_t i = 0; i < counter; i++)
     {
         Serial1.print(message[i], HEX);
@@ -492,25 +537,20 @@ void handleRoot()
 /**
  * @brief create a user feedback by the build in LED
  * 
- * @param firstBlink 
- * @param secBlind 
- * @param thirdBlink 
+ * @param blinkTimes 
  */
-void handleErrorLED(int firstBlink, int secBlind, int thirdBlink)
+void handleErrorLED(int blinkTimes)
 {
-    for (int index = 0; index < 3; index++)
+
+    for (int j = 0; j < 3; j++)
     {
-        digitalWrite(LED_BUILTIN, HIGH);
-        delay(5000 * firstBlink);
-        digitalWrite(LED_BUILTIN, LOW);
-        delay(3000);
-        digitalWrite(LED_BUILTIN, HIGH);
-        delay(5000 * secBlind);
-        digitalWrite(LED_BUILTIN, LOW);
-        delay(3000);
-        digitalWrite(LED_BUILTIN, HIGH);
-        delay(5000 * thirdBlink);
-        digitalWrite(LED_BUILTIN, LOW);
+        for (int index = 0; index < blinkTimes; index++)
+        {
+            digitalWrite(2, LOW);
+            delay(800);
+            digitalWrite(2, HIGH);
+            delay(1000);
+        }
         delay(3000);
     }
 }

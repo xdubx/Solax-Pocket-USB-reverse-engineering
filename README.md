@@ -136,9 +136,11 @@ If you have a battery connected to your inverter -> You can read the values out 
 |---|---|
 |GND|GND|
 |VIN|5V|
-|GPI13 (D7) (RXD2)|TX|
-|GPI15 (D8)|RX|
-  
+|GPI01 (TX)|TX|
+|GPI03 (RX)|RX|
+|GPI02 | RX | //Debug pin
+|D0 |RST | // ony needed if you using deepsleep
+
 TODO: add image 
 
 ## Design
