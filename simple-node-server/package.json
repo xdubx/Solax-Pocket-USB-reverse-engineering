@@ -1,0 +1,16 @@
+{
+  "name": "simple-node-server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "xdubx",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.1",
+    "influx": "^5.9.3",
+    "node-schedule": "^2.1.0"
+  }
+}
