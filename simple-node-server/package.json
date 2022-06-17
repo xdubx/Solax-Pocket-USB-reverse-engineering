@@ -1,0 +1,18 @@
+{
+  "name": "simple-node-server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "author": "xdubx",
+  "license": "ISC",
+  "dependencies": {
+    "@influxdata/influxdb-client": "^1.26.0",
+    "@influxdata/influxdb-client-apis": "^1.26.0",
+    "dotenv": "^16.0.1",
+    "express": "^4.18.1",
+    "node-schedule": "^2.1.0"
+  }
+}

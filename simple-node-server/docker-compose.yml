@@ -1,0 +1,57 @@
+version: "3.5"
+
+services:
+  influxdb2:
+      image: influxdb:latest
+      container_name: influxdb2
+      networks:
+        - grafana-net
+      ports:
+        - "8086:8086"
+      volumes:
+        - influxdb-storage:/var/lib/influxdb2
+        #- influxdb-storage:/etc/influxdb2
+      environment:
+        - DOCKER_INFLUXDB_INIT_MODE=setup
+        - DOCKER_INFLUXDB_INIT_USERNAME=${INFLUXDB_USERNAME}
+        - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUXDB_PASSWORD}
+        - DOCKER_INFLUXDB_INIT_ORG=${INFLUXDB_ORG}
+        - DOCKER_INFLUXDB_INIT_BUCKET=${INFLUXDB_BUCKET}
+        - DOCKER_INFLUXDB_INIT_RETENTION=1w
+        - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUXDB_ADMIN_TOKEN}
+      restart: always
+
+  grafana:
+    image: grafana/grafana:latest
+    networks:
+      - grafana-net
+    ports:
+      - '3000:3000'
+    volumes:
+      - grafana-storage:/var/lib/grafana
+    depends_on:
+      - influxdb2
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USERNAME}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+
+  node:
+    image: node:16-alpine
+    networks:
+      - grafana-net
+    user: "node"
+    working_dir: /home/node/app
+    volumes:
+      - ./:/home/node/app
+    ports:
+      - '3001:3001'
+    depends_on:
+      - influxdb2
+    command: "npm start"
+
+volumes:
+  influxdb-storage:
+  chronograf-storage:
+  grafana-storage:
+networks:
+  grafana-net:

@@ -1,64 +1,110 @@
-const express = require('express');
+const express = require("express");
+const { InfluxDB, Point, HttpError } = require("@influxdata/influxdb-client");
+const {PingAPI} = require('@influxdata/influxdb-client-apis')
+const schedule = require("node-schedule");
+require("dotenv").config();
 
 var app = express();
-var server = require('http').createServer(app);
-var port = 3001;
+var server = require("http").createServer(app);
+const port = 3001;
+const writeApi = new InfluxDB({
+  url: "http://influxdb2:8086",
+  token: process.env.INFLUXDB_ADMIN_TOKEN,
+  timeout: 3000,
+}).getWriteApi(process.env.INFLUXDB_ORG, process.env.INFLUXDB_BUCKET, "ns");
 
+const pingAPI = new PingAPI(writeApi);
+const SOLAR_HOURLY = "SOLAR_HOURLY";
+const SOLAR_OVERVIEW = "SOLAR_OVERVIEW";
 
-// Express 
-app.use(express.urlencoded({
-    extended: true
-}));
+// Express
+app.use(
+  express.urlencoded({
+    extended: true,
+  })
+);
+
 app.use(express.json());
 
+// create schedule
+
+schedule.scheduleJob("saveEndOfDay", "* 59 23 * *", saveEndOfDay);
+
 //global data holder for ram
-let Solar = {
-    eToday: 0.0,
-    eTotal: 0,
-    gridVoltage: 0.0,
-    gridCurrent: 0.0,
-    gridPower: 0,
-    pv1Voltage: 0.0,
-    pv1Current: 0.0,
-    pv1Power: 0,
-    pv2Voltage: 0.0,
-    pv2Current: 0.0,
-    pv2Power: 0,
-    temp: 0,
-    currentTimeStamp: new Date(),
-    dalyEntrys: []
-}
+let ram = {
+  eToday: 0.0,
+  eTotal: 0,
+  currentTimeStamp: new Date(),
+};
 
-app.post('/data', (req, res, next) => {
-    console.log(req.body);
-    if (req.body.hasOwnProperty("eToday")) {
-        //TODO: save it into the db
-        Solar.eToday = req.body.eToday;
-        Solar.eTotal = req.body.eTotal;
-        Solar.gridVoltage = req.body.gridVoltage;
-        Solar.gridCurrent = req.body.gridCurrent;
-        Solar.gridPower = req.body.gridPower;
-        Solar.pv1Voltage = req.body.pv1Voltage;
-        Solar.pv1Current = req.body.pv1Current;
-        Solar.pv1Power = req.body.pv1Power;
-        Solar.pv2Voltage = req.body.pv2Voltage;
-        Solar.pv2Current = req.body.pv2Current;
-        Solar.pv2Power = req.body.pv2Power;
-        Solar.temp = req.body.temp;
-        Solar.currentTimeStamp = new Date();
-    }
-    res.send(200);
-})
+// express
 
-
-// deliver template website
-app.get('/', (req, res, next) => {
-
-    //TODO: create prerendert website
-    res.send(Solar);
-})
-
-server.listen(port, function () {
-    console.log('Webserver created and listen on port: %d', port);
+app.post("/data", (req, res, next) => {
+  if (req.body.hasOwnProperty("eToday")) {
+    //TODO: save it into the db
+    ram.eToday = req.body.eToday;
+    ram.eTotal = req.body.eTotal;
+    ram.currentTimeStamp = new Date();
+    saveIntoDB(req);
+    res.sendStatus(200);
+  }
 });
 
+// deliver template website
+app.get("/", (req, res, next) => {
+  res.send(ram);
+});
+
+server.listen(port, function () {
+  console.log("[WEB] Webserver created and listen on port: %d", port);
+});
+
+pingAPI
+  .getPing()
+  .then(() => {
+    console.log("[DB] Ping SUCCESS");
+  })
+  .catch((error) => {
+    console.error(error);
+    console.log("[DB] Finished ERROR");
+    process.exit();
+  });
+
+/** Functions */
+
+async function saveIntoDB(req) {
+  const point = new Point(SOLAR_HOURLY)
+    .floatField("gridVoltage", req.body.gridVoltage)
+    .floatField("gridCurrent", req.body.gridCurrent)
+    .intField("gridPower", req.body.gridPower)
+    .floatField("pv1Voltage", req.body.pv1Voltage)
+    .floatField("pv1Current", req.body.pv1Current)
+    .intField("pv1Power", req.body.pv1Power)
+    .floatField("temp", req.body.temp);
+
+  writeApi.writePoint(point);
+  writeApi.flush();
+}
+
+async function saveEndOfDay() {
+  const point = new Point(SOLAR_OVERVIEW)
+    .floatField("eToday", ram.eToday)
+    .intField("eTotal", ram.eTotal);
+
+  //reset
+  ram.eToday = 0;
+}
+
+/**
+ *
+ */
+process.on("SIGTERM", async () => {
+  console.info("SIGTERM signal received.");
+  console.log("[WEB] Closing http server.");
+  server.close(() => {
+    console.log("[WEB] Http server closed.");
+  });
+  console.log("[DB] Save data into InfluxDB");
+  await writeApi.flush();
+  await writeApi.close();
+});
