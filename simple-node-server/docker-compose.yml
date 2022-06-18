@@ -2,7 +2,7 @@ version: "3.5"
 
 services:
   influxdb2:
-      image: influxdb:latest
+      image: influxdb:latest # for raspberry pi arm64v8/influxdb
       container_name: influxdb2
       networks:
         - grafana-net
