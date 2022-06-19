@@ -26,16 +26,17 @@ app.use(
 
 app.use(express.json());
 
-// create schedule
-
-schedule.scheduleJob("saveEndOfDay", "* 59 23 * *", saveEndOfDay);
-
 //global data holder for ram
 let ram = {
   eToday: 0.0,
   eTotal: 0,
   currentTimeStamp: new Date(),
 };
+
+
+// create schedule
+
+schedule.scheduleJob("saveEndOfDay", "59 23 * * *", ()=> {saveEndOfDay()});
 
 // express
 
@@ -86,7 +87,7 @@ async function saveIntoDB(req) {
   writeApi.flush();
 }
 
-async function saveEndOfDay() {
+function saveEndOfDay() {
   const point = new Point(SOLAR_OVERVIEW)
     .floatField("eToday", ram.eToday)
     .intField("eTotal", ram.eTotal);
