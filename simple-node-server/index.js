@@ -37,11 +37,14 @@ let ram = {
   currentTimeStamp: new Date(),
 };
 
+
+// create schedule
+
+schedule.scheduleJob("saveEndOfDay", "0 59 23 * * *", ()=> {saveEndOfDay()});
 // express
 
 app.post("/data", (req, res, next) => {
   if (req.body.hasOwnProperty("eToday")) {
-    //TODO: save it into the db
     ram.eToday = req.body.eToday;
     ram.eTotal = req.body.eTotal;
     ram.currentTimeStamp = new Date();
@@ -86,13 +89,13 @@ async function saveIntoDB(req) {
   writeApi.flush();
 }
 
-async function saveEndOfDay() {
+function saveEndOfDay() {
   const point = new Point(SOLAR_OVERVIEW)
     .floatField("eToday", ram.eToday)
     .intField("eTotal", ram.eTotal);
 
-    writeApi.writePoint(point);
-    writeApi.flush();
+  writeApi.writePoint(point);
+  writeApi.flush();
   //reset
   ram.eToday = 0;
 }
