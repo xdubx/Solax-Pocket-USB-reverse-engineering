@@ -17,6 +17,7 @@ const pingAPI = new PingAPI(writeApi);
 const SOLAR_HOURLY = "SOLAR_HOURLY";
 const SOLAR_OVERVIEW = "SOLAR_OVERVIEW";
 
+
 // Express
 app.use(
   express.urlencoded({
@@ -25,10 +26,6 @@ app.use(
 );
 
 app.use(express.json());
-
-// create schedule
-
-schedule.scheduleJob("saveEndOfDay", "0 59 23 * *", saveEndOfDay);
 
 //global data holder for ram
 let ram = {
@@ -52,6 +49,8 @@ app.post("/data", (req, res, next) => {
     res.sendStatus(200);
   }
 });
+
+
 
 // deliver template website
 app.get("/", (req, res, next) => {
