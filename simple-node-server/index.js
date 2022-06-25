@@ -28,7 +28,7 @@ app.use(express.json());
 
 // create schedule
 
-schedule.scheduleJob("saveEndOfDay", "* 59 23 * *", saveEndOfDay);
+schedule.scheduleJob("saveEndOfDay", "0 59 23 * *", saveEndOfDay);
 
 //global data holder for ram
 let ram = {
@@ -91,6 +91,8 @@ async function saveEndOfDay() {
     .floatField("eToday", ram.eToday)
     .intField("eTotal", ram.eTotal);
 
+    writeApi.writePoint(point);
+    writeApi.flush();
   //reset
   ram.eToday = 0;
 }
