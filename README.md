@@ -178,3 +178,9 @@ Still missing freatures are:
 - pwr limit
   
 Notice: Only the register dongle and request data is tested
+
+## TODO:
+- Rewrite Code
+- Parsing
+- More Values
+- Check posible layout with Serial input to inverter MINIUSB ESP to USB Inverter
