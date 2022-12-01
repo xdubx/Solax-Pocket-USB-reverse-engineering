@@ -12,7 +12,7 @@ Spezial thanks go to [@tuxmike](https://github.com/tuxmike)
 ## Message structure (header, payload, checksum)
 |Byte offset|Datatype|Description|Value|
 |---|---|---|---|
-|0|uint16|Static preamble|0xAA55|
+|0|uint16|Static preamble|0xAA 0x55|
 |2|uint8|Total msg frame size (byte)|size of: header + payload + checksum
 |3|uint8|Cmd control code|e.g. 0x01|
 |4|uint8|Cmd function code|e.g. 0x8C|
@@ -66,7 +66,7 @@ Spezial thanks go to [@tuxmike](https://github.com/tuxmike)
 |14|uint16|PV1 power|1W|
 |16|uint16|PV2 power|1W|
 |18|uint16|Grid frequency|0.01Hz|
-|20|uint16|Mode|0: Wait, 1: Check, 2: Normal/Running, 3: Fault, (4: PermanentFault, 5: UpdateMode, ...?)|
+|20|uint16|Mode| See Invertermodes |
 |22|uint32|E Total|0.1kwh|
 |26|uint16|E Today|0.1kwh|
 |28|?|?|?|
@@ -77,6 +77,21 @@ Spezial thanks go to [@tuxmike](https://github.com/tuxmike)
 |...|...|...|...|
 |110|uint8|0x1B ?|?|
 |...|...|...|...|
+
+## Inverter Modes
+|Code|Description|
+|---|---|
+|0 |Waiting|
+|1 |Checking|
+|2 |Normal|
+|3 |Fault|
+|4 |Permanent Fault|
+|5 |Update|
+|6 |Off-grid waiting|
+|7 |Off-grid|
+|8 |Self Testing|
+|9 |Idle|
+|10|Standby|
 
 
 ## Response inverter error data (Control code=0x01, FuncCode=0x84)
