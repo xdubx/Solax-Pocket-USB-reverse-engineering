@@ -8,7 +8,7 @@
  * @copyright MIT 2021
  * 
  */
-#include "Arduino.h"
+#include <Arduino.h>
 #include <ESP8266WiFi.h>
 #include <WiFiManager.h>
 #include "Config.h"
@@ -137,6 +137,8 @@ void loop()
  */
 void sendRequest()
 {
+
+    // TODO: handle here mqtt class
     if (WiFi.status() == WL_CONNECTED)
     {
         WiFiClient wifiClient;

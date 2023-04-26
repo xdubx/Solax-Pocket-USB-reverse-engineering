@@ -21,4 +21,9 @@
 #define HOSTNAME          "Solax"
 #define APPassword        "solaxsolar"
 
+/**
+ * Should be MQTT enabled
+ */
+#define MQTT_SUPPORTED 1
+
 #endif 
