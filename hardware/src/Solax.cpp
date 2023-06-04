@@ -1,4 +1,5 @@
 #include "Solax.h"
+#define inverter_timeout 5000
 
 const unsigned char usbRegister[] = {0xaa, 0x55, 0x11, 0x02, 0x01, 0x53, 0x57, 0x41, 0x4D, 0x54, 0x4C, 0x59, 0x34, 0x5A, 0x4D, 0x1f, 0x04};
 const unsigned char requestSerial[] = {0xaa, 0x55, 0x07, 0x01, 0x05, 0x0c, 0x01}; // TODO: optimise this function onto a facory with 2 parameter
@@ -23,7 +24,6 @@ const String keys[] = {
     "runTime"};
 
 unsigned char message[206];
-
 
 Solax::Solax(){
         //clear buffer

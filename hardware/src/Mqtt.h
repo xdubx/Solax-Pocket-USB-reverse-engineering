@@ -21,7 +21,7 @@ public:
     Mqtt(WiFiClient& wc) : wifiClient(wc), client(wifiClient){};
     void setup(const MqttConfig& config);
     bool reconnect();
-    void publish(const String& JsonString);
+    void publish(const String& json);
     void loop();
 
  private:

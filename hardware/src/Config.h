@@ -1,13 +1,16 @@
 #ifndef __CONFIG_H__
 #define __CONFIG_H__
 
-/**
- * @brief set the workmode of the esp
- *  api endpoint over http server
- *  send the values as json over http post
- */
+
+
+// Should be the Webserver enabled
 //#define workModeAPI
-#define workModeSEND
+
+// Should be HTTP Request enabled
+#define WEB_REQUEST_SUPPORTED 1
+
+// Should be MQTT enabled
+#define MQTT_SUPPORTED 1
 
 /**
  * only one of both modes are posible if you activate both the controller crashed Serial1 and buildin led are on pin 2
@@ -21,9 +24,8 @@
 #define HOSTNAME          "Solax"
 #define APPassword        "solaxsolar"
 
-/**
- * Should be MQTT enabled
- */
-#define MQTT_SUPPORTED 1
+
+
+
 
 #endif 
