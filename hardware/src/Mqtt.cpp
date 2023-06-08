@@ -16,18 +16,34 @@ bool Mqtt::reconnect()
 {
     if (this->config.server.length() == 0)
     {
-        // No server configured
+        // No server configured throw error
         return false;
     }
     // if (WiFi.status() != WL_CONNECTED) return false;
-    if (this->client.connected())
+    if (this->client.connected()){
         return true;
-
-    this->previousConnectTryMillis = millis();
-
-    if (millis() - this->previousConnectTryMillis >= (5000))
-    {
     }
+
+    if(this->retryCounter > 5){
+        return false;
+    }
+
+    if ((millis() - this->previousConnectTryMillis) >= 5000)
+    {
+        this->previousConnectTryMillis = millis();
+        if(this->client.connect(getId().c_str(),
+                                 this->config.user.c_str(),
+                                 this->config.pwd.c_str(),
+                                 this->config.topic.c_str(), 1, 1,
+                                 "{\"InverterStatus\": -1 }")){
+            this->retryCounter = 0;
+            return true;
+        }else{
+            this->retryCounter++;
+            WEB_DEBUG_PRINT("MQTT Connect failed");
+        }
+    }
+    return false;
 }
 
 void Mqtt::publish(const String &json)
@@ -38,12 +54,22 @@ void Mqtt::publish(const String &json)
     }
     else
     {
-        // TODO: throw error
+         WEB_DEBUG_PRINT("MQTT Publish failed");
     }
 }
 
 void Mqtt::loop()
 {
     this->client.loop();
+}
+
+
+String Mqtt::getId() {
+#ifdef ESP8266
+  uint64_t id = ESP.getChipId();
+#elif ESP32
+  uint64_t id = ESP.getEfuseMac();
+#endif
+  return "Solax" + String(id & 0xffffffff);
 }
 #endif

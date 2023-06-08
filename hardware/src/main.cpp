@@ -9,41 +9,89 @@
  * 
  */
 #include <Arduino.h>
-#include <ESP8266WiFi.h>
 #include <WiFiManager.h>
+#include <Preferences.h>
 #include "Config.h"
 #include "Solax.h"
+#include "WebDebug.h"
+
+// BOARD selection
+
+
+#ifdef ESP8266
+    #include <ESP8266WiFi.h>
+    #include <ESP8266WebServer.h>
+    #include <ESP8266HTTPClient.h>
+    #include <ESP8266mDNS.h>
+#elif ESP32
+    #ifdef MQTTS_BROKER_CA_CERT
+        #define MQTTS_ENABLED 1
+    #endif
+
+#ifdef MQTTS_ENABLED
+    #include <WiFiClientSecure.h>
+#else
+    #include <WiFiClient.h>
+#endif
+    #include <HTTPClient.h>
+    #include <ESPmDNS.h>
+    #include <WebServer.h>
+#endif
 
 
 #if MQTT_SUPPORTED == 1
     #include "Mqtt.h"
     void loadMqttConfig(MqttConfig* config);
+    void saveMqttConfig(MqttConfig* config);
+    
+    #ifdef MQTTS_ENABLED
+        WiFiClientSecure espClient;
+    #else
+        WiFiClient espClient;
+    #endif
+
+    Mqtt mClient(espClient);
 
 #endif
 
 
 #if WEB_REQUEST_SUPPORTED == 1
     #include <WiFiClient.h>
-    #include <ESP8266HTTPClient.h>
 
     typedef struct {
         String server;
-        String port;
     } WebConfig;
 
+    void loadWebConfig(WebConfig* config);
+    void sendRequest(String msg);
+    #if ENABLE_WEB_DEBUG == 1
+        void handleDebug();
+    #endif
 #endif
 
-#ifdef workModeAPI
-    #include <ESP8266WebServer.h>
-    // create webserver
-    ESP8266WebServer server(80);
+#if WEBSERVER_SUPPORTED == 1
+    #ifdef ESP8266
+        ESP8266WebServer server(80);
+    #elif ESP32
+        WebServer server(80);
+    #endif
     //protoype function
     void handleRoot();
 #endif
 
 #define CONFIG_PORTAL_MAX_TIME_SECONDS 300
 Solax Inverter;
+WebConfig webConfig;
+MqttConfig mqttConfig;
+
 WiFiManager wifiManager;
+Preferences prefs;
+
+long RefreshTimer = 0;
+
+//prototype function
+void savePrefCallback();
+void setupWifiManagerMenu(WebConfig webConfig, MqttConfig mqttConfig);
 
 #if MQTT_SUPPORTED == 1
     WiFiManagerParameter* custom_mqtt_server = NULL;
@@ -61,19 +109,17 @@ WiFiManager wifiManager;
 
 #if WEB_REQUEST_SUPPORTED == 1
     WiFiManagerParameter* custom_web_server = NULL;
-    WiFiManagerParameter* custom_web_port = NULL;
 
     const static char* webServerFile = "/webserver";
-    const static char* webPortFile = "/webport";
 #endif
 
 
 
 void setup()
 {
-    // delay 10 sec if the inverter has not enouth power and rebooting 
+    // delay 10 sec if the inverter has not enouth power and or rebooting 
     // don't send empty requests
-    delay(10000);
+    delay(10000); // set a flag for sun rising
     #ifdef debugLED
         pinMode(2, OUTPUT);
         digitalWrite(2, HIGH);
@@ -81,20 +127,26 @@ void setup()
     
     Serial.begin(9600);
 
-    #ifdef debugSERIAL
+    #ifdef ENABLE_DEBUG_OUTPUT
         Serial1.begin(9600);
     #endif
 
     WiFi.hostname(HOSTNAME); // TODO: check if mdns here is needed? 
-
     // Setup the wifimanager
     // Set a timeout so the ESP doesn't hang waiting to be configured, for instance after a power failure
     wifiManager.setConfigPortalTimeout(CONFIG_PORTAL_MAX_TIME_SECONDS);
     // Automatically connect using saved credentials -> if connection failes the wifi manager start as ap
-    //TODO: load configs
 
+    prefs.begin("Solax");
 
-    setupWifiManagerMenu();
+    #if WEB_REQUEST_SUPPORTED == 1
+        loadWebConfig(&webConfig);
+    #endif
+    #if MQTT_SUPPORTED == 1
+        loadMqttConfig(&mqttConfig);
+    #endif
+
+    setupWifiManagerMenu(webConfig, mqttConfig);
 
     bool wifi = wifiManager.autoConnect(HOSTNAME, APPassword);
 
@@ -105,6 +157,7 @@ void setup()
         #ifdef debugLED
             handleErrorLED(3);
         #endif
+          WEB_DEBUG_PRINT("WIFI connect timeout");
         // restart after the timeout for the wifimanager
         ESP.restart();
     }
@@ -115,41 +168,100 @@ void setup()
     }
 
 
-    // TODO: overwork this section 
-    #ifdef debugSERIAL
-        Serial1.print("Go to deep sleep");
-    #endif
+    bool success = Inverter.registerDongle();
+    if(success){
 
-    WiFi.disconnect();
-    ESP.deepSleep(36e8); // for ~1h
-    delay(10);
+        #if WEBSERVER_SUPPORTED == 1
+            if (MDNS.begin("solax"))
+            {
+                #ifdef ENABLE_DEBUG_OUTPUT
+                    Serial1.println("mDNS responder started");
+                #endif
+            }
+            else
+            {
+                #ifdef ENABLE_DEBUG_OUTPUT
+                    Serial1.println("Error setting up MDNS responder!");
+                #endif
+            }
+            
+            server.on("/", handleRoot);
+            
+            #if ENABLE_WEB_DEBUG == 1
+                server.on("/debug", handleDebug);
+            #endif
+
+            server.begin();
+            #ifdef ENABLE_DEBUG_OUTPUT
+                Serial1.println("HTTP server started");
+            #endif
+            
+        #endif
+
+        #if MQTT_SUPPORTED == 1
+            WEB_DEBUG_PRINT("mClient.setup");
+            mClient.setup(mqttConfig);
+        #endif
+    }else{
+        WEB_DEBUG_PRINT("Failed to register dongle");
+        #ifdef ENABLE_DEBUG_OUTPUT
+            Serial1.println("Failed to register dongle");
+        #endif
+    }
 }
 
 void loop()
 {
-    #ifdef workModeAPI
+
+    long now = millis();
+
+    #if WEBSERVER_SUPPORTED == 1
         //loop webserver
         server.handleClient();
     #endif
+
+    // handle mqtt
+    #if MQTT_SUPPORTED == 1
+        mClient.loop();
+    #endif
+
+    // check wifi connection? 
+    Wifi_Reconnect();
+
+    if ((now - RefreshTimer) > REFRESH_TIMER){
+     
+        Inverter.requestInverterData();
+
+        // create json
+        WEB_DEBUG_PRINT("Request data");
+        String message = Inverter.decodeInverterRes();
+
+        #if WEB_REQUEST_SUPPORTED == 1
+           sendRequest(message);
+        #endif
+
+        #if MQTT_SUPPORTED == 1
+            WEB_DEBUG_PRINT("mClient.publish()");
+            mClient.publish(message);
+        #endif
+    }
+    delay(10);
 }
 
-// wifi related stuff
 
+
+#if WEB_REQUEST_SUPPORTED == 1
 /**
  * @brief send a request to the given host
  * 
  */
-void sendRequest()
+void sendRequest(String msg)
 {
-
-    // TODO: handle here mqtt class
     if (WiFi.status() == WL_CONNECTED)
     {
         WiFiClient wifiClient;
         HTTPClient http;
-        String msg = Inverter.decodeInverterRes();
-                        // replace host from config
-        http.begin(wifiClient, "test.de"); // TODO: handle not reachable error
+        http.begin(wifiClient, webConfig.server); // TODO: handle not reachable error
         
         http.addHeader("Content-Type", "application/json");
 
@@ -161,19 +273,22 @@ void sendRequest()
 
         if (httpCode != HTTP_CODE_OK)
         {
+            String message = "HTTP Error: " + String(httpCode);
+            WEB_DEBUG_PRINT(message.c_str());
             #ifdef debugLED
                 handleErrorLED(4);
             #endif
-            #ifdef debugSERIAL
+            #ifdef ENABLE_DEBUG_OUTPUT
                 Serial1.println("Http Code: ");
                 Serial1.println(httpCode);
             #endif
+            // TODO: DEBUG WEB
         }
     }
     else
     {
         // wifi get lost at runtime
-        #ifdef debugSERIAL
+        #ifdef ENABLE_DEBUG_OUTPUT
                 Serial1.println("Error in WiFi connection at runtime");
         #endif
 
@@ -182,25 +297,34 @@ void sendRequest()
         #endif
     }
 }
+#endif
 
-#ifdef workmodeAPI
-/**
- * weberver section
- */
+#if WEBSERVER_SUPPORTED == 1
+    /**
+     * weberver section
+     */
 
-void handleRoot()
-{
-    bool success = requestInverterData();
-    // request data
-    if (success)
+    void handleRoot()
     {
-        server.send(200, "application/json", decodeInverterRes());
+        bool success = Inverter.requestInverterData();
+        // request data
+        if (success)
+        {
+            server.send(200, "application/json", Inverter.decodeInverterRes());
+        }
+        else
+        {
+            server.send(200, "application/json", String("{\"error\": \"Failed to request data from inverter\"}"));
+        }
     }
-    else
-    {
-        server.send(200, "application/json", String("{\"error\": \"Failed to request data from inverter\"}"));
-    }
-}
+
+    #if ENABLE_WEB_DEBUG == 1
+
+        void handleDebug()
+        {
+            server.send(200, "text/plain", acWebDebug);
+        }
+    #endif
 #endif
 
 
@@ -210,32 +334,17 @@ void handleRoot()
  * 
  * @param enableCustomParams enable custom params aka. mqtt settings
  */
-// TODO: put webconf
-void setupWifiManagerMenu(){
-    // check if webrequest is enabled
-    bool enableCustomParams = false;
+void setupWifiManagerMenu(WebConfig webConfig, MqttConfig mqttConfig){
+
 
     #if WEB_REQUEST_SUPPORTED == 1
-        enableCustomParams = true;
-        // TODO: update to webconfig
-        loadWebConfig(&webConfig);
-
-        custom_web_server = new WiFiManagerParameter("server", "web server", webConfig.server.c_str(), 40);
-        custom_web_port = new WiFiManagerParameter("port", "web port", webConfig.port.c_str(), 6);
+        custom_web_server = new WiFiManagerParameter("server", "web server", webConfig.server.c_str(), 64);
 
         wifiManager.addParameter(custom_web_server);
-        wifiManager.addParameter(custom_web_port);
-
-        // REPLACE FUNCTION
-        wifiManager.setSaveConfigCallback(saveParamCallback);
-
-        // save callback
     #endif
 
     // check if mqtt is enabled
     #if MQTT_SUPPORTED == 1
-        enableCustomParams = true;
-        loadMqttConfig(&mqttConfig);
 
         custom_mqtt_server = new WiFiManagerParameter("server", "mqtt server", mqttConfig.server.c_str(), 40);
         custom_mqtt_port = new WiFiManagerParameter("port", "mqtt port", mqttConfig.port.c_str(), 6);
@@ -248,17 +357,29 @@ void setupWifiManagerMenu(){
         wifiManager.addParameter(custom_mqtt_topic);
         wifiManager.addParameter(custom_mqtt_user);
         wifiManager.addParameter(custom_mqtt_pwd);
-        
-        wifiManager.setSaveConfigCallback(saveParamCallback);
+
     #endif
+    wifiManager.setSaveConfigCallback(savePrefCallback);
 }
+
+
+// ------ WEB helper functions
 
 #if WEB_REQUEST_SUPPORTED == 1
 
 void loadWebConfig(WebConfig* config)
 {
-    config->server = prefs.getString(serverfile, "192.168.178.2");
-    config->port = prefs.getString(portfile, "80");
+    config->server = prefs.getString(webServerFile, "http://192.168.178.2:80");
+}
+
+/**
+ * @brief save the current webconfig
+ * 
+ * @param config 
+ */
+void saveWebConfig(WebConfig* config)
+{
+    prefs.putString(webServerFile, config->server);
 }
 
 #endif
@@ -275,7 +396,7 @@ void loadWebConfig(WebConfig* config)
  */
 void loadMqttConfig(MqttConfig* config)
 {
-    config->server = prefs.getString(serverfile, "10.1.2.3");
+    config->server = prefs.getString(serverfile, "192.168.178.2");
     config->port = prefs.getString(portfile, "1883");
     config->topic = prefs.getString(topicfile, "energy/solar");
     config->user = prefs.getString(userfile, "");
@@ -296,25 +417,32 @@ void saveMqttConfig(MqttConfig* config)
     prefs.putString(secretfile, config->pwd);
 }
 
-/**
- * @brief save callback for the wifimanager to save the mqtt stuff
- * 
- */
-void saveParamCallback()
-{
-    MqttConfig config;
-
-    config.server = custom_mqtt_server->getValue();
-    config.port = custom_mqtt_port->getValue();
-    config.topic = custom_mqtt_topic->getValue();
-    config.user = custom_mqtt_user->getValue();
-    config.pwd = custom_mqtt_pwd->getValue();
-
-    saveMqttConfig(&config);
-
-    //ESP.restart();
-}
 #endif
+
+void savePrefCallback(){
+    #if MQTT_SUPPORTED == 1
+        MqttConfig mqttConfig;
+
+        mqttConfig.server = custom_mqtt_server->getValue();
+        mqttConfig.port = custom_mqtt_port->getValue();
+        mqttConfig.topic = custom_mqtt_topic->getValue();
+        mqttConfig.user = custom_mqtt_user->getValue();
+        mqttConfig.pwd = custom_mqtt_pwd->getValue();
+
+        saveMqttConfig(&mqttConfig);
+    #endif
+
+    #if WEB_REQUEST_SUPPORTED == 1
+        WebConfig webConfig;
+
+        webConfig.server = custom_web_server->getValue();
+
+        saveWebConfig(&webConfig);
+   #endif
+
+}
+
+
 /**
  * @brief create a user feedback by the build in LED
  * 
@@ -336,52 +464,24 @@ void handleErrorLED(int blinkTimes)
     }
 }
 
+void Wifi_Reconnect(){
+    if (WiFi.status() != WL_CONNECTED)
+    {
+        wifiManager.autoConnect();
 
-        // #ifdef workModeAPI
-        // // Start the mDNS responder for solax.local
-        //     if (MDNS.begin("solax"))
-        //     {
-        //         #ifdef debugSERIAL
-        //             Serial1.println("mDNS responder started");
-        //         #endif
-        //     }
-        //     else
-        //     {
-        //         #ifdef debugSERIAL
-        //             Serial1.println("Error setting up MDNS responder!");
-        //         #endif
-        //     }
-        //     server.on("/", handleRoot);
-        //     server.begin(); // start the server
+        int retryCounter = 0;
 
-        //     #ifdef debugSERIAL
-        //             Serial1.println("HTTP server started");
-        //     #endif
-        // #endif
+        while (WiFi.status() != WL_CONNECTED)
+        {
+            // add counter for breaking while loop
+            delay(200);
+            #if ENABLE_DEBUG_OUTPUT == 1
+                Serial1.println("Failed to register dongle");
+            #endif
 
-        // #ifdef WEB_REQUEST_SUPPORTED
-        //     // register dongle
-        //     // pull data
-        //     bool reg = Inverter.registerDongle();
-        //     delay(50);
-        //     if (reg)
-        //     {
-        //         bool request = Inverter.requestInverterData();
-        //         if (!request)
-        //         {
-        //             #ifdef debugLED
-        //                 handleErrorLED(2);
-        //             #endif
-        //         }
-        //         else
-        //         {
-        //             sendRequest();
-        //         }
-        //     }
-        //     else
-        //     {
-        //         #ifdef debugLED
-        //             handleErrorLED(1);
-        //         #endif
-        //     }
-        // #endif
+            WEB_DEBUG_PRINT("Reconnecting");
+        }
+
+        WEB_DEBUG_PRINT("WiFi reconnected")
+    }
+}

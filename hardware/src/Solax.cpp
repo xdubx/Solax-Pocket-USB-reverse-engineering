@@ -33,6 +33,8 @@ Solax::Solax(){
 /**
  * @brief register the usb dongle on the inverter
  * 
+ * @return true if registered successfull
+ * @return false if not
  */
 bool Solax::registerDongle()
 {
