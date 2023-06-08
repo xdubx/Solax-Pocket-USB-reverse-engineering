@@ -332,7 +332,8 @@ void sendRequest(String msg)
 /**
  * @brief create custom wifimanager menu entries
  * 
- * @param enableCustomParams enable custom params aka. mqtt settings
+ * @param webConfig for the webrequest
+ * @param mqttConfig for the mqtt
  */
 void setupWifiManagerMenu(WebConfig webConfig, MqttConfig mqttConfig){
 

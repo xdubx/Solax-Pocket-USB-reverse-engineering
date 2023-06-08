@@ -1,6 +1,18 @@
 # What is this?
 Custom Firmware for a Solax WIFI USB Stick as an esp32/8266
 
+[![Build with PlatformIO](https://img.shields.io/badge/PlatformIO-Build-orange)](https://platformio.org/)
+
+[![ESP8266](https://img.shields.io/badge/ESP-8266-000000.svg?longCache=true&style=flat&colorA=CC101F)](https://www.espressif.com/en/products/socs/esp8266) [![ESP32](https://img.shields.io/badge/ESP-32-000000.svg?longCache=true&style=flat&colorA=CC101F)](https://www.espressif.com/en/products/socs/esp32)
+
+**This works with the ESP8266 Arduino platform**
+
+[https://github.com/esp8266/Arduino](https://github.com/esp8266/Arduino)
+
+**This works with the ESP32 Arduino platform** 
+
+[https://github.com/espressif/arduino-esp32](https://github.com/espressif/arduino-esp32)
+
 
 # ESP8266
 
