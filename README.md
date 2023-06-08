@@ -1,10 +1,71 @@
 # What is this?
+Custom Firmware for a Solax WIFI USB Stick as an esp32/8266
 
-I try to revese the solar stick at the communication level with the solar inverter from Solax.
-In parallel, I'm looking at ghirda to maybe speed things up. I would be very grateful for any tips.
 
-## Which µC this repo using 
-For a fast development i wrote for the esp8622 in arduino cpp. Pinout below. 
+# ESP8266
+
+## Pinout of ESP
+|ESP|USB|
+|---|---|
+|GND (USB)|GND|       
+|VIN (USB)|5V|       
+|GPI01 (TX)(USB)|TX|
+|GPI03 (RX)(USB)|RX|
+
+
+|ESP|DEBUG USB|
+|---|---|
+|GPI02 | RX |  
+
+TODO: add image 
+
+## Features
+Implemented Features:
+* Built-in simple Webserver
+* Simple Webhook
+* The data received will be transmitted by MQTT to a server of your choice.
+* The data received is also provied as JSON
+* Wifi manager with own access point for initial configuration of Wifi and MQTT server 
+* TLS support for esp32
+
+## Supported microcontrollers
+* NODEMCU V1 (ESP8266) with a Growatt Inverter connected via USB (USB-Serial Chip: CH340)
+
+## Supported Inverters
+* X1 Mini
+
+## Structure
+### JSON
+For ENDPOINT Data and sended post request
+```json
+{
+    "gridVoltage": number,
+    "gridCurrent": number,
+    "gridPower": number,
+    "pv1Voltage": number,
+    "pv1Current": number,
+    "pv2Voltage": number,
+    "pv2Current": number,
+    "pv1Power": number,
+    "pv2Power": number,
+    "gridFrequency": number,
+    "mode": number,
+    "eTotal": number,
+    "eToday": number,
+    "temp": number,
+    "runTime": number,
+}
+
+```
+
+## Code 
+Still missing freatures are: 
+- Parse Serial
+- Parse Settings
+- pwr limit
+  
+Notice: Only the register dongle and request data is tested
+
 
 # Build of request
 Spezial thanks go to [@tuxmike](https://github.com/tuxmike)
@@ -142,54 +203,3 @@ Spezial thanks go to [@tuxmike](https://github.com/tuxmike)
 ## Values that are missing
 * Battery
 If you have a battery connected to your inverter -> You can read the values out and print it in a issue.
-
-
-# ESP8266
-
-## Pinout of ESP
-|ESP|USB|
-|---|---|
-|GND|GND|
-|VIN|5V|
-|GPI01 (TX)|TX|
-|GPI03 (RX)|RX|
-|GPI02 | RX | //Debug pin
-|D0 |RST | // ony needed if you using deepsleep
-
-TODO: add image 
-
-## Design
-
-There are 2 ways how the ESP was programmed. Once as a web server and active wifi connection and MDNS. Of course consumes more power than the second variant with a short setup to the WLAN and then an HTTP post request to an endpoint. After that the WLAN is closed and the ESP goes into deep sleep mode.
-
-## Structure
-### JSON
-For ENDPOINT Data and sended post request
-```json
-{
-    "gridVoltage": number,
-    "gridCurrent": number,
-    "gridPower": number,
-    "pv1Voltage": number,
-    "pv1Current": number,
-    "pv2Voltage": number,
-    "pv2Current": number,
-    "pv1Power": number,
-    "pv2Power": number,
-    "gridFrequency": number,
-    "mode": number,
-    "eTotal": number,
-    "eToday": number,
-    "temp": number,
-    "runTime": number,
-}
-
-```
-
-## Code 
-Still missing freatures are: 
-- Parse Serial
-- Parse Settings
-- pwr limit
-  
-Notice: Only the register dongle and request data is tested
