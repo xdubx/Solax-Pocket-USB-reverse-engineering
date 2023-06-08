@@ -41,7 +41,7 @@ Implemented Features:
 * TLS support for esp32
 
 ## Supported microcontrollers
-* NODEMCU V1 (ESP8266) with a Growatt Inverter connected via USB (USB-Serial Chip: CH340)
+* NODEMCU V1 (ESP8266) with a Solax Inverter connected via USB (USB-Serial Chip: CH340)
 
 ## Supported Inverters
 * X1 Mini
